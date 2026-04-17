@@ -14,9 +14,9 @@ mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB connection error:', err));
 
+app.use('/v1/chat', chatRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/keys', keyRoutes);
-app.use('/api/chat', chatRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
