@@ -2,8 +2,8 @@ const express = require('express');
 const { authenticateApiKey } = require('../middleware/auth');
 const { checkRateLimit } = require('../utils/rateLimit');
 const router = express.Router();
-const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
-const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1';
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_BASE_URL = 'https://api.groq.com/openai/v1';
 
 router.post('/completions', authenticateApiKey, async (req, res) => {
   try {
@@ -16,16 +16,14 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
       });
     }
     const { model, messages, max_tokens, temperature, tools, tool_choice, stream } = req.body;
-
-    // Forward to NVIDIA
-    const response = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
+    const response = await fetch(`${GROQ_BASE_URL}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${NVIDIA_API_KEY}`,
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'nvidia/llama-3.1-nemotron-70b-instruct',
+        model: 'llama-3.3-70b-versatile',
         messages,
         max_tokens: max_tokens || 8192,
         temperature: temperature ?? 0.3,
@@ -37,7 +35,10 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      return res.status(response.status).json({ error: { message: error.error?.message || 'NVIDIA API error' } });
+      console.error('Groq API Error:', response.status, error);
+      return res.status(response.status).json({ 
+        error: { message: error.error?.message || 'Groq API error' } 
+      });
     }
 
     if (stream) {

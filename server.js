@@ -5,12 +5,12 @@ const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const keyRoutes = require('./routes/keys');
 const chatRoutes = require('./routes/chat');
-
+const db_url = "mongodb+srv://ayocode_admin:sYa.85EMSf%25myex@ayocode-cluster.uijpz1t.mongodb.net/ayocode?retryWrites=true&w=majority&appName=ayocode-cluster" 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-mongoose.connect(process.env.MONGODB_URI)
+mongoose.connect(db_url)
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB connection error:', err));
 
