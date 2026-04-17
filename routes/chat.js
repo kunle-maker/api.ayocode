@@ -3,7 +3,6 @@ const { authenticateApiKey } = require('../middleware/auth');
 const { checkRateLimit } = require('../utils/rateLimit');
 const router = express.Router();
 
-// Configuration for Google Gemini
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 
@@ -12,7 +11,7 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
   
   try {
     if (!GEMINI_API_KEY) {
-      console.error('GEMINI_API_KEY is missing in environment variables');
+      console.error('Gemini api key is missing in environment variables');
       return res.status(500).json({ error: { message: 'Server configuration error: Missing API key' } });
     }
     
@@ -30,14 +29,12 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
     const { messages, max_tokens, temperature, stream } = req.body;
     
     console.log('Forwarding to Google Gemini...');
-    console.log('Model: gemini-1.5-flash');
+    console.log('Model: gemini-2.0-flash');
     
-    // Note: Gemini free tier does not support streaming in the same way.
     if (stream) {
-      console.warn('Streaming is not fully supported in Gemini free tier. Falling back to non-stream.');
+      console.warn('Streaming is not fully supported in free tier. Falling back to non-stream.');
     }
-
-    // Transform messages to Gemini format
+    
     const contents = [];
     let systemInstruction = null;
     
@@ -64,9 +61,8 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
       requestBody.systemInstruction = systemInstruction;
     }
     
-    // Using gemini-1.5-flash which is available in the free tier
     const response = await fetch(
-      `${GEMINI_BASE_URL}/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `${GEMINI_BASE_URL}/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: {
@@ -89,7 +85,6 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
         errorData = { message: errorText };
       }
       
-      // Handle specific quota errors from Gemini
       if (response.status === 429) {
         return res.status(429).json({ 
           error: { message: 'Gemini free tier quota exceeded. Please try again later.' } 
@@ -102,13 +97,11 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
     }
 
     const data = await response.json();
-    
-    // Transform Gemini response to OpenAI-compatible format
     const transformedResponse = {
       id: 'gemini-' + Date.now(),
       object: 'chat.completion',
       created: Math.floor(Date.now() / 1000),
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.0-flash',
       choices: [{
         index: 0,
         message: {
