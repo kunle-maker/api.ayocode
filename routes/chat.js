@@ -2,6 +2,7 @@ const express = require('express');
 const { authenticateApiKey } = require('../middleware/auth');
 const { checkRateLimit } = require('../utils/rateLimit');
 const router = express.Router();
+
 const GEMINI_API_KEYS = process.env.GEMINI_API_KEYS 
   ? process.env.GEMINI_API_KEYS.split(',').map(key => key.trim())
   : [];
@@ -37,7 +38,7 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
     
     console.log('Model:', GEMINI_MODEL);
     console.log('Messages count:', messages?.length);
-    console.log('Tools:', !!tools);
+    console.log('Tools:', tools?.length || 0);
     
     if (stream) {
       console.warn('Streaming disabled');
@@ -71,22 +72,44 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
     }
 
     if (tools && tools.length > 0) {
-      requestBody.tools = tools.map(tool => ({
-        functionDeclarations: tool.function ? [{
-          name: tool.function.name,
-          description: tool.function.description,
-          parameters: tool.function.parameters
-        }] : []
-      }));
+      const functionDeclarations = [];
       
-      if (tool_choice) {
-        requestBody.toolConfig = {
-          functionCallingConfig: {
-            mode: tool_choice === 'auto' ? 'AUTO' : 'ANY'
+      tools.forEach(tool => {
+        if (tool.type === 'function' && tool.function) {
+          const declaration = {
+            name: tool.function.name,
+            description: tool.function.description || '',
+          };
+          
+          if (tool.function.parameters) {
+            declaration.parameters = {
+              type: 'object',
+              properties: tool.function.parameters.properties || {},
+              required: tool.function.parameters.required || []
+            };
           }
-        };
+          
+          functionDeclarations.push(declaration);
+        }
+      });
+      
+      if (functionDeclarations.length > 0) {
+        requestBody.tools = [{ functionDeclarations }];
+        
+        if (tool_choice) {
+          requestBody.toolConfig = {
+            functionCallingConfig: {
+              mode: tool_choice === 'auto' ? 'AUTO' : 'ANY'
+            }
+          };
+        }
       }
     }
+    
+    console.log('Request body:', JSON.stringify({
+      ...requestBody,
+      tools: requestBody.tools ? 'present' : 'none'
+    }));
     
     let lastError = null;
     
@@ -171,6 +194,11 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
         const errorText = await response.text();
         console.error('FAIL: Gemini API Error:', errorText);
         lastError = { status: response.status, message: errorText };
+        
+        if (response.status === 400) {
+          console.error('Bad request details:', errorText);
+          break;
+        }
         
         if (response.status !== 429 && response.status !== 403) {
           break;
